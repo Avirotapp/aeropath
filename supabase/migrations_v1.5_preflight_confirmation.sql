@@ -1,0 +1,3 @@
+-- AeroPath v1.5: pre-flight approval confirms the booking.
+-- No schema change is required; the application updates bookings.status to CONFIRMED
+-- after a successful APPROVED pre-flight review, using the existing booking RLS policy.

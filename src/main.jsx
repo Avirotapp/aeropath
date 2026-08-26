@@ -92,7 +92,15 @@ function Sessions({profile}){
     const {error:rerr}=await supabase.from('preflight_reviews').insert({preparation_id:prep.id,instructor_id:profile.id,decision,comment:comment||null});
     if(rerr){setNotice(rerr.message);return}
     const {error}=await supabase.from('preflight_preparations').update({status:decision,reviewed_by:profile.id,reviewed_at:new Date().toISOString()}).eq('id',prep.id);
-    if(error)setNotice(error.message);else{setNotice(`Preparation ${decision==='APPROVED'?'approved':'returned for changes'}.`);openSession(selected)}
+    if(error){setNotice(error.message);return}
+    if(decision==='APPROVED' && selected.status==='REQUESTED'){
+      const {error:bookingError}=await supabase.from('bookings').update({status:'CONFIRMED'}).eq('id',selected.id);
+      if(bookingError){setNotice(`Preparation approved, but the booking could not be confirmed: ${bookingError.message}`);return}
+    }
+    setNotice(decision==='APPROVED'?'Preparation approved and booking confirmed. The session can now be started.':'Preparation returned for changes.');
+    await load();
+    const {data:b}=await supabase.from('bookings').select('*,simulators(name,simulator_type),student:student_id(full_name,email)').eq('id',selected.id).single();
+    if(b){setSelected(b);await openSession(b)}
   }
   async function startSession(){
     if(!selected)return;setNotice('');
