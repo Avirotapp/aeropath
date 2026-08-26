@@ -204,20 +204,22 @@ The intended result is:
 
 ---
 
-# 4. CURRENT KNOWN BUG — FIX NEXT
+# 4. v1.8 BUILD CORRECTION
 
-At the current snapshot, the user tested:
+The first v1.8 frontend package contained a JavaScript syntax error in `src/main.jsx` at the session-review confirmation prompt. The confirmation message had a literal line break inside a single-quoted JavaScript string, causing Vite to report `Unterminated string`.
 
-1. Session is IN PROGRESS.
-2. Instructor filled:
-   - Training activity: `Did this things`
-   - Duration: `3`
-   - Grade: `3`
-   - Comments: `student weak`
-3. Clicked `Submit Session Review`.
-4. Confirmation dialog appeared.
-5. User confirmed.
-6. Session remained `IN PROGRESS`.
+The corrected source now uses escaped newline characters (`\n\n`) in the confirmation string. This is a source/build correction only; no additional Supabase migration is required.
+
+The intended finalization workflow remains:
+
+1. Session is `IN_PROGRESS`.
+2. Instructor completes the session review.
+3. Confirmation dialog appears.
+4. Confirming calls `submit_simulator_session`.
+5. The trusted RPC inserts the training record and changes the booking to `COMPLETED` in one transaction.
+6. The UI reloads the booking and displays the locked completed record.
+
+If Vercel reports a runtime/database error after this syntax correction, capture the exact error before changing the database.
 
 This means the finalization path is currently not completing successfully.
 

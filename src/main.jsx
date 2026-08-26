@@ -136,9 +136,7 @@ function Sessions({profile}){
     if(!selected)return;
     if(!review.lesson_title.trim()){setNotice('Enter the training activity / lesson before submitting.');return}
     if(review.duration_minutes===''||Number(review.duration_minutes)<0){setNotice('Enter a valid session duration.');return}
-    const ok=window.confirm('Are you sure you want to submit the session review?
-
-Once submitted it can no longer be edited. Please make sure the training activity, duration, grade and instructor comments are correct.');
+    const ok=window.confirm('Are you sure you want to submit the session review?\n\nOnce submitted it can no longer be edited. Please make sure the training activity, duration, grade and instructor comments are correct.');
     if(!ok)return;
     setSubmitting(true);setNotice('');
     const {data:recordId,error}=await supabase.rpc('submit_simulator_session',{p_booking_id:selected.id,p_lesson_title:review.lesson_title.trim(),p_duration_minutes:Number(review.duration_minutes),p_grade:review.grade===''?null:Number(review.grade),p_comments:review.comments.trim()||null});
