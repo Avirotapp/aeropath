@@ -1,40 +1,43 @@
-# AeroPath v1.1 — Simulator Scheduler
+# AeroPath v1.3 — Session Workflow
 
-AeroPath is a React + Vite + Supabase MVP for flight simulator operations.
+AeroPath is a lightweight simulator operations portal built with React, Vite and Supabase.
 
-## Included in this release
-- Supabase authentication
-- Student role-based portal
-- Four seeded simulator types:
-  - Cessna 172 G1000
-  - Diamond DA20 Analogue
-  - ATC Simulator
-  - VR Simulator
-- Weekly simulator scheduler
-- Simulator/date/status filters
-- Booking request modal
-- 30/60/90/120/180 minute sessions
-- Booking overlap protection through the existing Supabase trigger
-- Student booking list and cancellation
-- Instructor/administrator request confirmation and cancellation UI
-- Responsive calendar layout
-- Existing progress, documents, safety, modules and audit foundations
+## v1.3 adds
 
-## Deploy
-The project is designed for Vercel.
+- Booking-linked student pre-flight preparation
+- Student session history
+- Optional student NavLog / other flight uploads per session
+- Instructor/admin session review
+- Instructor/admin session-specific file uploads
+- Pre-flight approval / changes requested workflow
+- Training programme assignment (RPC, JAP, YAP seeded; administrators can add more later)
+- Programme comments
+- Separate printable instructor/admin training history
+- Students cannot read internal instructor training comments/records
 
-Environment variables:
+## Deploying v1.3 to the existing AeroPath project
+
+1. Keep the existing Supabase project and Vercel project.
+2. Run `supabase/migrations_v1.3_session_workflow.sql` once in Supabase SQL Editor after the v1.2 migration.
+3. Upload the v1.3 project files to the connected GitHub repository and commit to `main`.
+4. Vercel will redeploy automatically.
+5. Test with one STUDENT and one INSTRUCTOR account.
+
+Do not rerun the original `schema.sql` or `seed.sql` against the existing production database.
+
+## Supabase environment variables
+
+Set these in Vercel:
+
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
 
-The database schema and seed data are in `supabase/schema.sql` and `supabase/seed.sql`.
+## Stage 2 workflow
 
-## Important
-The scheduler uses the existing `bookings` table and its database-level overlap trigger. It does not claim to implement instructor availability rules, recurring schedules, email notifications, or advanced calendar administration yet. Those can be added as later AeroPath modules.
+Student:
 
+`Booking → My Sessions → Pre-flight Preparation → Optional NavLog/Other Files → Submit`
 
-## v1.2 Instructor Operations
+Instructor/Admin:
 
-Run `supabase/migrations_v1.2_instructor_operations.sql` once in the Supabase SQL Editor after the existing v1.1 schema. This adds the instructor reference library, training records, historical session comments, and automatic simulator-hour totals.
-
-Instructor/admin users can upload reference files to the private `aeropath-documents` bucket. All instructors and administrators can read files marked `INSTRUCTOR_REFERENCE`. Students continue to see only their own documents.
+`Session Review → View Preparation → View Student Files → Approve / Request Changes → Add Training Record → Training History`
