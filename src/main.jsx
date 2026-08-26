@@ -67,8 +67,16 @@ function Sessions({profile}){
       supabase.from('documents').select('*').eq('booking_id',b.id).order('created_at',{ascending:false}),
       supabase.from('student_programs').select('*,training_programs(name)').eq('student_id',b.student_id).order('assigned_at',{ascending:false}).limit(1)
     ]);
-    setPrep(p.data||null);setDocs(d.data||[]);setProgram(sp.data?.[0]||null);setForm({...empty,...(p.data||{})});
-    if(isStaff && b.session_status==='IN_PROGRESS'){
+    let booking=b;
+    const loadedPrep=p.data||null;
+    // Reconcile legacy bookings: if preparation was already approved before the
+    // v1.5 confirmation flow existed, confirm the booking when staff opens it.
+    if(isStaff && booking.status==='REQUESTED' && loadedPrep?.status==='APPROVED'){
+      const {data:confirmed,error:confirmError}=await supabase.from('bookings').update({status:'CONFIRMED'}).eq('id',booking.id).eq('status','REQUESTED').select('*,simulators(name,simulator_type),student:student_id(full_name,email)').single();
+      if(!confirmError && confirmed) booking=confirmed;
+    }
+    setSelected(booking);setPrep(loadedPrep);setDocs(d.data||[]);setProgram(sp.data?.[0]||null);setForm({...empty,...(loadedPrep||{})});
+    if(isStaff && booking.session_status==='IN_PROGRESS'){
       const duration=Math.max(0,Math.round((Date.now()-new Date(b.session_started_at||b.starts_at).getTime())/60000));
       setReview({lesson_title:'',duration_minutes:String(duration||60),grade:'',comments:''});
     }
