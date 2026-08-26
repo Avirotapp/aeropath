@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import {
   AlertTriangle, CalendarDays, ChevronLeft, ChevronRight, Clock3, FileText,
   LayoutDashboard, LogOut, Plus, Plane, Settings, ShieldCheck, Users,
-  BookOpen, X, Check, Ban, RefreshCw
+  BookOpen, X, Check, Ban, RefreshCw, Upload, MessageSquare, UserRound
 } from 'lucide-react';
 import './styles.css';
 
@@ -89,7 +89,7 @@ function Portal({ session, profile, tab, setTab }) {
   const nav = role === 'STUDENT'
     ? ['dashboard', 'bookings', 'progress', 'documents', 'safety']
     : role === 'INSTRUCTOR'
-      ? ['dashboard', 'bookings', 'students', 'progress', 'safety']
+      ? ['dashboard', 'bookings', 'students', 'documents', 'progress', 'safety']
       : role === 'SAFETY_MANAGER'
         ? ['dashboard', 'safety', 'reports']
         : ['dashboard', 'simulators', 'bookings', 'users', 'modules', 'audit'];
@@ -111,8 +111,8 @@ function Portal({ session, profile, tab, setTab }) {
     simulators: <Simulators />,
     modules: <Modules />,
     audit: <Audit />,
-    students: <Students />,
-    users: <Students />
+    students: <Students profile={profile} />,
+    users: <Students profile={profile} />
   };
 
   return <div className="app">
@@ -316,15 +316,132 @@ function Progress({ profile }) {
   return <div className="panel"><h3>Training progress</h3><p className="muted">Lesson and course progress recorded for your account.</p>{rows.map(r=><div className="row" key={r.id}><BookOpen size={20}/><div><b>{r.lessons?.name}</b><small>{r.lessons?.courses?.name}</small></div><span className="pill">{r.status}</span></div>)}{!rows.length&&<Empty title="No progress recorded yet"/>}</div>;
 }
 function Documents({ profile }) {
+  const isStaff = ['INSTRUCTOR','ADMINISTRATOR'].includes(profile?.role);
   const [rows,setRows]=useState([]);
-  useEffect(()=>{if(profile)supabase.from('documents').select('*').eq('owner_id',profile.id).order('created_at',{ascending:false}).then(({data})=>setRows(data||[]));},[profile]);
-  return <div className="panel"><h3>Your documents</h3><p className="muted">Document management is connected to the database; advanced upload UI is a later module.</p>{rows.map(d=><div className="row" key={d.id}><FileText/><div><b>{d.title}</b><small>{d.category||'Document'}</small></div></div>)}{!rows.length&&<Empty title="No documents yet"/>}</div>;
+  const [notice,setNotice]=useState('');
+  const [title,setTitle]=useState('');
+  const [category,setCategory]=useState('Reference');
+  const [file,setFile]=useState(null);
+  const [uploading,setUploading]=useState(false);
+
+  async function load(){
+    if(!profile) return;
+    let q=supabase.from('documents').select('*').order('created_at',{ascending:false});
+    if(!isStaff) q=q.eq('owner_id',profile.id);
+    const {data,error}=await q;
+    if(error) setNotice(error.message); else setRows(data||[]);
+  }
+  useEffect(()=>{load();},[profile]);
+
+  async function uploadReference(e){
+    e.preventDefault(); setNotice('');
+    if(!file || !title.trim()){setNotice('Choose a file and enter a title.');return;}
+    setUploading(true);
+    const path=`${profile.id}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
+    const up=await supabase.storage.from('aeropath-documents').upload(path,file,{upsert:false});
+    if(up.error){setNotice(up.error.message);setUploading(false);return;}
+    const ins=await supabase.from('documents').insert({
+      owner_id:profile.id, uploaded_by:profile.id, title:title.trim(), category,
+      audience:'INSTRUCTOR_REFERENCE', storage_path:path, mime_type:file.type||null, file_size:file.size
+    });
+    if(ins.error){await supabase.storage.from('aeropath-documents').remove([path]);setNotice(ins.error.message);}
+    else {setNotice('Reference file uploaded.');setTitle('');setFile(null);document.getElementById('reference-file').value='';await load();}
+    setUploading(false);
+  }
+
+  async function openDocument(doc){
+    const {data,error}=await supabase.storage.from('aeropath-documents').createSignedUrl(doc.storage_path,300);
+    if(error) setNotice(error.message); else window.open(data.signedUrl,'_blank','noopener,noreferrer');
+  }
+
+  return <div className="grid two">
+    <div className="panel">
+      <div className="panel-title"><div><h3>{isStaff ? 'Instructor reference library' : 'Your documents'}</h3><p className="muted">{isStaff ? 'Files uploaded by CFIs, instructors and administrators for operational reference.' : 'Your training documents.'}</p></div></div>
+      {notice&&<div className="notice inline-notice">{notice}</div>}
+      {rows.filter(d=>isStaff ? d.audience==='INSTRUCTOR_REFERENCE' : d.owner_id===profile.id).map(d=><button className="row doc-row" key={d.id} onClick={()=>openDocument(d)}>
+        <FileText/><div><b>{d.title}</b><small>{d.category||'Document'} · {formatDate(d.created_at)}</small></div><span className="pill">OPEN</span>
+      </button>)}
+      {!rows.filter(d=>isStaff ? d.audience==='INSTRUCTOR_REFERENCE' : d.owner_id===profile.id).length&&<Empty title={isStaff?'No reference files yet':'No documents yet'}/>}
+    </div>
+    {isStaff&&<div className="panel">
+      <div className="panel-title"><div><h3>Upload reference material</h3><p className="muted">Available to instructors and administrators.</p></div><Upload size={20}/></div>
+      <form className="formgrid" onSubmit={uploadReference}>
+        <label className="full">Title<input value={title} onChange={e=>setTitle(e.target.value)} placeholder="e.g. C172 SOP briefing" required/></label>
+        <label>Category<select value={category} onChange={e=>setCategory(e.target.value)}><option>Reference</option><option>SOP</option><option>Checklist</option><option>Briefing</option><option>Training Material</option><option>Other</option></select></label>
+        <label className="full">File<input id="reference-file" type="file" onChange={e=>setFile(e.target.files?.[0]||null)} required/></label>
+        <div className="modal-actions"><button className="primary" disabled={uploading}>{uploading?'Uploading…':'Upload reference file'}</button></div>
+      </form>
+    </div>}
+  </div>;
 }
 function Safety(){const [rows,setRows]=useState([]);useEffect(()=>{supabase.from('safety_notices').select('*').eq('published',true).order('created_at',{ascending:false}).then(({data})=>setRows(data||[]));},[]);return <div className="grid two">{rows.map(n=><div className="notice-card" key={n.id}><span className="pill">{n.severity}</span><h3>{n.title}</h3><p>{n.body}</p></div>)}{!rows.length&&<Empty title="No active safety notices"/>}</div>}
 function Simulators(){return <div className="panel"><h3>Simulator inventory</h3><Fleet/></div>}
 function Modules(){const [rows,setRows]=useState([]);useEffect(()=>{supabase.from('system_modules').select('*').order('name').then(({data})=>setRows(data||[]));},[]);return <div className="panel"><h3>System modules</h3>{rows.map(r=><div className="row" key={r.key}><Settings/><div><b>{r.name}</b><small>{r.key}</small></div><span className="pill">{r.enabled?'ENABLED':'DISABLED'}</span></div>)}</div>}
 function Audit(){const [rows,setRows]=useState([]);useEffect(()=>{supabase.from('audit_logs').select('*').order('created_at',{ascending:false}).limit(50).then(({data})=>setRows(data||[]));},[]);return <div className="panel"><h3>Recent audit activity</h3>{rows.map(r=><div className="row" key={r.id}><Clock3/><div><b>{r.action}</b><small>{r.entity_type||'System'} · {formatDate(r.created_at)}</small></div></div>)}{!rows.length&&<Empty title="No audit activity yet"/>}</div>}
-function Students(){return <div className="panel"><h3>Students</h3><p className="muted">Student management is the next operational module.</p><Empty title="No staff workflow configured yet"/></div>}
+function Students({profile}) {
+  const [students,setStudents]=useState([]);
+  const [selected,setSelected]=useState(null);
+  const [records,setRecords]=useState([]);
+  const [bookings,setBookings]=useState([]);
+  const [sims,setSims]=useState([]);
+  const [notice,setNotice]=useState('');
+  const [form,setForm]=useState({simulator_id:'',booking_id:'',lesson_title:'',duration:'60',grade:'',comments:'',session_date:toDateInput(new Date())});
+
+  async function loadStudents(){
+    const {data}=await supabase.from('profiles').select('*').eq('role','STUDENT').order('full_name');
+    setStudents(data||[]);
+    const {data:s}=await supabase.from('simulators').select('*').order('name'); setSims(s||[]);
+  }
+  useEffect(()=>{if(profile)loadStudents();},[profile]);
+  async function loadStudentDetail(student){
+    setSelected(student); setNotice('');
+    const [r,b]=await Promise.all([
+      supabase.from('training_records').select('*,simulators(name,simulator_type),instructor:instructor_id(full_name)').eq('student_id',student.id).order('session_date',{ascending:false}),
+      supabase.from('bookings').select('id,starts_at,ends_at,simulator_id,status,simulators(name,simulator_type)').eq('student_id',student.id).order('starts_at',{ascending:false}).limit(50)
+    ]);
+    setRecords(r.data||[]); setBookings(b.data||[]);
+  }
+  async function addRecord(e){
+    e.preventDefault(); setNotice('');
+    if(!selected||!form.lesson_title.trim()){setNotice('Select a student and enter the training activity.');return;}
+    const {error}=await supabase.from('training_records').insert({
+      student_id:selected.id,instructor_id:profile.id,simulator_id:form.simulator_id||null,booking_id:form.booking_id||null,
+      session_date:form.session_date,lesson_title:form.lesson_title.trim(),duration_minutes:Number(form.duration)||0,grade:form.grade?Number(form.grade):null,comments:form.comments.trim()||null
+    });
+    if(error)setNotice(error.message); else {setNotice('Training record added.');setForm({...form,lesson_title:'',duration:'60',grade:'',comments:'',booking_id:''});await loadStudentDetail(selected);}
+  }
+  const studentBookings=bookings.filter(b=>['COMPLETED','CONFIRMED','REQUESTED'].includes(b.status));
+  return <div className="student-layout">
+    <div className="panel student-list"><div className="panel-title"><h3>Students</h3><span>{students.length}</span></div>
+      {students.map(s=><button key={s.id} className={`student-item ${selected?.id===s.id?'selected':''}`} onClick={()=>loadStudentDetail(s)}><UserRound size={18}/><div><b>{s.full_name||'Student'}</b><small>{s.email}</small></div><span>{Number(s.total_sim_hours||0).toFixed(1)} h</span></button>)}
+      {!students.length&&<Empty title="No students found"/>}
+    </div>
+    <div className="student-detail">
+      {!selected?<Empty title="Select a student" text="Review their simulator history, previous instructor comments and add training records."/>:<>{
+        notice&&<div className="notice inline-notice">{notice}</div>}
+        <div className="hero compact"><div><div className="eyebrow">STUDENT TRAINING RECORD</div><h1>{selected.full_name||selected.email}</h1><p>{Number(selected.total_sim_hours||0).toFixed(1)} total simulator hours</p></div><UserRound size={56}/></div>
+        <div className="grid two">
+          <div className="panel"><div className="panel-title"><div><h3>Previous simulator session comments</h3><p className="muted">Historical notes from every instructor.</p></div><MessageSquare size={20}/></div>
+            {records.map(r=><div className="history-card" key={r.id}><div className="history-top"><b>{r.lesson_title}</b><span>{formatDate(r.session_date)}</span></div><small>{r.simulators?.name||'Simulator'} · {r.duration_minutes} min · Instructor: {r.instructor?.full_name||'Staff'}{r.grade!=null?` · Grade ${r.grade}`:''}</small><p>{r.comments||'No comments recorded.'}</p></div>)}
+            {!records.length&&<Empty title="No previous training records"/>}
+          </div>
+          <div className="panel"><div className="panel-title"><div><h3>Add training record</h3><p className="muted">Create a new entry for this student's record.</p></div><Plus size={20}/></div>
+            <form className="formgrid" onSubmit={addRecord}>
+              <label>Session date<input type="date" value={form.session_date} onChange={e=>setForm({...form,session_date:e.target.value})} required/></label>
+              <label>Simulator<select value={form.simulator_id} onChange={e=>setForm({...form,simulator_id:e.target.value})}><option value="">Select</option>{sims.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
+              <label className="full">Link to booking<select value={form.booking_id} onChange={e=>setForm({...form,booking_id:e.target.value})}><option value="">No linked booking</option>{studentBookings.map(b=><option key={b.id} value={b.id}>{formatDate(b.starts_at)} · {b.simulators?.name} · {b.status}</option>)}</select></label>
+              <label className="full">Training activity / lesson<input value={form.lesson_title} onChange={e=>setForm({...form,lesson_title:e.target.value})} placeholder="e.g. Instrument scan and abnormal procedures" required/></label>
+              <label>Duration (min)<input type="number" min="0" value={form.duration} onChange={e=>setForm({...form,duration:e.target.value})}/></label>
+              <label>Grade / score<input type="number" min="1" max="5" value={form.grade} onChange={e=>setForm({...form,grade:e.target.value})} placeholder="Optional"/></label>
+              <label className="full">Instructor comments<textarea rows="6" value={form.comments} onChange={e=>setForm({...form,comments:e.target.value})} placeholder="Debrief, strengths, areas to improve, next lesson…"/></label>
+              <div className="modal-actions"><button className="primary">Add to training record</button></div>
+            </form>
+          </div>
+        </div>
+      </>}
+    </div>
+  </div>;
+}
 function Empty({title,text}){return <div className="empty"><div className="cardicon"><CalendarDays/></div><h3>{title}</h3>{text&&<p className="muted">{text}</p>}</div>}
 
 function startOfWeek(date){const d=new Date(date);const day=d.getDay();const diff=day===0?-6:1-day;d.setHours(0,0,0,0);d.setDate(d.getDate()+diff);return d;}

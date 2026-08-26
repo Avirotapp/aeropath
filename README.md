@@ -31,3 +31,10 @@ The database schema and seed data are in `supabase/schema.sql` and `supabase/see
 
 ## Important
 The scheduler uses the existing `bookings` table and its database-level overlap trigger. It does not claim to implement instructor availability rules, recurring schedules, email notifications, or advanced calendar administration yet. Those can be added as later AeroPath modules.
+
+
+## v1.2 Instructor Operations
+
+Run `supabase/migrations_v1.2_instructor_operations.sql` once in the Supabase SQL Editor after the existing v1.1 schema. This adds the instructor reference library, training records, historical session comments, and automatic simulator-hour totals.
+
+Instructor/admin users can upload reference files to the private `aeropath-documents` bucket. All instructors and administrators can read files marked `INSTRUCTOR_REFERENCE`. Students continue to see only their own documents.
