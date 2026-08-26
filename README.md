@@ -7,3 +7,6 @@ When an instructor/admin opens a booking that is still REQUESTED but whose pre-f
 Session start does not require the scheduled time to be in the future; instructors can start a confirmed session after its scheduled time if the session has not been started/completed.
 
 No new database migration is required.
+
+## v1.7 session confirmation reconciliation
+Run `supabase/migrations_v1.7_session_confirmation_reconciliation.sql` once. It adds a secure RPC that reconciles legacy bookings where the student's pre-flight preparation is already APPROVED but the booking remains REQUESTED.

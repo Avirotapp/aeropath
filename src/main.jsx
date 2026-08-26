@@ -69,11 +69,16 @@ function Sessions({profile}){
     ]);
     let booking=b;
     const loadedPrep=p.data||null;
-    // Reconcile legacy bookings: if preparation was already approved before the
-    // v1.5 confirmation flow existed, confirm the booking when staff opens it.
+    // Reconcile legacy bookings through a security-definer RPC. This is more
+    // reliable than a client-side UPDATE and handles records approved before
+    // the automatic confirmation workflow was introduced.
     if(isStaff && booking.status==='REQUESTED' && loadedPrep?.status==='APPROVED'){
-      const {data:confirmed,error:confirmError}=await supabase.from('bookings').update({status:'CONFIRMED'}).eq('id',booking.id).eq('status','REQUESTED').select('*,simulators(name,simulator_type),student:student_id(full_name,email)').single();
-      if(!confirmError && confirmed) booking=confirmed;
+      const {data:confirmed,error:confirmError}=await supabase.rpc('reconcile_booking_confirmation',{p_booking_id:booking.id});
+      if(confirmError){
+        setNotice(`Booking confirmation could not be reconciled: ${confirmError.message}`);
+      }else if(confirmed){
+        booking={...booking,...confirmed};
+      }
     }
     setSelected(booking);setPrep(loadedPrep);setDocs(d.data||[]);setProgram(sp.data?.[0]||null);setForm({...empty,...(loadedPrep||{})});
     if(isStaff && booking.session_status==='IN_PROGRESS'){
