@@ -10,3 +10,7 @@ No new database migration is required.
 
 ## v1.7 session confirmation reconciliation
 Run `supabase/migrations_v1.7_session_confirmation_reconciliation.sql` once. It adds a secure RPC that reconciles legacy bookings where the student's pre-flight preparation is already APPROVED but the booking remains REQUESTED.
+
+## v1.8 build note
+
+This build continues from the v1.7 handoff. The current priority is reliable instructor session completion and a locked student pre-flight workflow. See `AEROPATH_HANDOFF.md` for the full project state and recovery notes.
