@@ -41,3 +41,6 @@ Student:
 Instructor/Admin:
 
 `Session Review → View Preparation → View Student Files → Approve / Request Changes → Add Training Record → Training History`
+
+## v1.4 — Instructor session lifecycle
+Run `supabase/migrations_v1.4_session_lifecycle.sql` after v1.3. Instructors start a confirmed booking with **I am starting this session now**, complete the session review, and submit it through an irreversible confirmation. A submitted session becomes `COMPLETED` and creates the locked training record. An instructor cannot start a second session while one is `IN_PROGRESS`.
