@@ -1,15 +1,33 @@
-# AeroPath v1
+# AeroPath v1.1 — Simulator Scheduler
 
-React + Vite + Supabase MVP for AeroPath.
+AeroPath is a React + Vite + Supabase MVP for flight simulator operations.
 
-## Quick start
-1. Create a Supabase project.
-2. Run `supabase/schema.sql` in Supabase SQL Editor.
-3. Run `supabase/seed.sql`.
-4. Copy `.env.example` to `.env` and add your Supabase URL and anon key.
-5. Run `npm install` then `npm run dev`.
-6. Push the folder to GitHub and import it into Vercel for public deployment.
+## Included in this release
+- Supabase authentication
+- Student role-based portal
+- Four seeded simulator types:
+  - Cessna 172 G1000
+  - Diamond DA20 Analogue
+  - ATC Simulator
+  - VR Simulator
+- Weekly simulator scheduler
+- Simulator/date/status filters
+- Booking request modal
+- 30/60/90/120/180 minute sessions
+- Booking overlap protection through the existing Supabase trigger
+- Student booking list and cancellation
+- Instructor/administrator request confirmation and cancellation UI
+- Responsive calendar layout
+- Existing progress, documents, safety, modules and audit foundations
 
-New accounts default to STUDENT. For development, change roles in the Supabase `profiles` table.
+## Deploy
+The project is designed for Vercel.
 
-This is a functional MVP foundation. Advanced pre-flight approval, full ESMS workflow, advanced admin controls and production hardening are later modules.
+Environment variables:
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+
+The database schema and seed data are in `supabase/schema.sql` and `supabase/seed.sql`.
+
+## Important
+The scheduler uses the existing `bookings` table and its database-level overlap trigger. It does not claim to implement instructor availability rules, recurring schedules, email notifications, or advanced calendar administration yet. Those can be added as later AeroPath modules.
